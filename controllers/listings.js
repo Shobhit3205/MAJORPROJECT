@@ -3,6 +3,58 @@ const mbxGeocoding = require('@mapbox/mapbox-sdk/services/geocoding');
 const mapToken = process.env.MAP_TOKEN;
 const geocodingClient = mbxGeocoding({ accessToken: mapToken });
 
+module.exports.filter = async(req,res,next) => {
+    let {id} = req.params;
+    let allListings = await Listing.find({category : {$all : [id] }});
+    console.log(allListings);
+
+    if(allListings.length != 0){
+        res.locals.success = `Listing Find By ${id}`;
+        res.render("lsitings/index.ejs",{allListings});
+    }else{
+        req.flash("error","Listing is not here !!!! ");
+        res.redirect("/listings");
+    }
+};
+
+module.exports.search = async(req,res) => {
+console.log(req.query.q);
+let input = req.query.q.trim().replace(/\s+/g, " "); 
+if (input == "" || input == " "){
+//search value empty
+req.flash("error", "Search value empty !!!");
+res.redirect("/listings");
+}
+// convert every word 1st latter capital and other small.
+let data = input.split("");
+let element = "";
+let flag = false;
+for (let index = 0 ; index <data.length ; index++){
+    if(index == 0 || flag){
+        element = element+data[index].toUpperCase();
+    } else{
+        element = element+data[index].toLowerCase();
+    }
+    flag = data[index] == " ";
+}
+let allListings = await Listing.find({
+    title:{ $regex :element, $options : "i"}
+});
+if(allListings.length != 0){
+    res.locals.success = "Listings searched By Title";
+    res.render("listings/index.ejs",{allListings});
+    return;
+}
+if(allListings.length == 0){
+    allListings = await Listing.find({
+    category:{ $regex :element, $options : "i"},
+    }).sort({_id:-1});
+  if(allListings != 0){
+     res.locals.success = "Listings searched by Title";
+     res.render("listings/index.ejs",{allListings});
+     return;
+}
+}
 module.exports.index = async(req,res)=>{
     const allListings = await Listing.find({});
     res.render("listings/index.ejs",{allListings});
@@ -76,4 +128,4 @@ module.exports.destroyListing = async(req,res)=>{
    console.log(deletedListing);
    req.flash("success","New Listing Deleted");
    res.redirect("/listings");
-};
+}};
